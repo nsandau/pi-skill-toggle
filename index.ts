@@ -34,6 +34,7 @@ interface SkillInfo {
 	mode: DisableMode;
 	disableModelInvocation: boolean;  // True if frontmatter has disable-model-invocation: true
 	hasDuplicates: boolean;  // True if multiple paths share this name
+	startupTokenEstimate: number; // Approximate per-skill system-prompt cost when enabled
 }
 
 interface SkillToggleResult {
@@ -323,6 +324,32 @@ function normalizePath(p: string): string {
 	return path.resolve(trimmed);
 }
 
+/**
+ * Pi injects this XML entry for each enabled skill, rather than the full
+ * SKILL.md file. Tokenizers differ by model, so use a deliberately rounded
+ * character-based estimate instead of implying an exact provider token count.
+ */
+function estimateStartupTokenCount(name: string, description: string, filePath: string): number {
+	const xmlEscape = (value: string) => value
+		.replace(/&/g, "&amp;")
+		.replace(/</g, "&lt;")
+		.replace(/>/g, "&gt;")
+		.replace(/"/g, "&quot;")
+		.replace(/'/g, "&apos;");
+	const entry = [
+		"  <skill>",
+		`    <name>${xmlEscape(name)}</name>`,
+		`    <description>${xmlEscape(description)}</description>`,
+		`    <location>${xmlEscape(filePath)}</location>`,
+		"  </skill>",
+	].join("\n");
+	return Math.max(1, Math.round(entry.length / 4));
+}
+
+function formatTokenEstimate(tokens: number): string {
+	return tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Skill Discovery
 // ═══════════════════════════════════════════════════════════════════════════
@@ -608,6 +635,7 @@ function loadAllSkills(): { skills: SkillInfo[]; byName: Map<string, SkillInfo> 
 				mode: "enabled", // Will be computed after grouping
 				disableModelInvocation: raw.disableModelInvocation,
 				hasDuplicates: false, // Will be computed after grouping
+				startupTokenEstimate: estimateStartupTokenCount(raw.name, raw.description, raw.filePath),
 			});
 		}
 	}
@@ -893,11 +921,13 @@ class SkillToggleComponent {
 				const changedMarker = hasChanged ? changed("*") : " ";
 				const dupMarker = skill.hasDuplicates ? duplicate("²") : " ";
 				const nameStr = isSelected ? bold(selectedText(skill.name)) : skill.name;
-				const maxDescLen = Math.max(0, innerW - visLen(skill.name) - 18);
+				const tokenText = ` (~${formatTokenEstimate(skill.startupTokenEstimate)} tok)`;
+				const tokenStr = hint(tokenText);
+				const maxDescLen = Math.max(0, innerW - visLen(skill.name) - visLen(tokenText) - 18);
 				const descStr = maxDescLen > 3 ? description(truncateToWidth(skill.description, maxDescLen, "…")) : "";
 				
 				const separator = descStr ? `  ${border("—")}  ` : "";
-				const skillLine = `${prefix} ${statusIcon}${changedMarker}${dupMarker}${nameStr}${separator}${descStr}`;
+				const skillLine = `${prefix} ${statusIcon}${changedMarker}${dupMarker}${nameStr}${tokenStr}${separator}${descStr}`;
 				lines.push(row(skillLine));
 			}
 			lines.push(emptyRow());

@@ -13,7 +13,7 @@ pi install npm:pi-skill-toggle
 Or from git:
 
 ```bash
-pi install git:github.com/Whamp/pi-skill-toggle
+pi install git:github.com/nsandau/pi-skill-toggle
 ```
 
 Restart pi to load the extension.
@@ -77,6 +77,9 @@ Disabled mode adds `-path` entries to settings.json (pi's built-in mechanism).
 | ○ (red) | Disabled - completely off |
 | * (yellow) | Pending change (not yet saved) |
 | ² | Skill has multiple sources (duplicates) |
+| `(~123 tok)` | Approximate tokens Pi adds to the startup skill catalog when the skill is enabled |
+
+Token counts estimate Pi's per-skill XML catalog entry, which contains the name, description, and path. They do not include the full `SKILL.md`, which Pi reads only when a skill is used. Counts are approximate because the exact value depends on the active model's tokenizer.
 
 ## Theming
 
