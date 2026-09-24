@@ -7,12 +7,6 @@ Full credit to [nicobailon](https://github.com/nicobailon) for pi-skill-palette 
 ## Install
 
 ```bash
-pi install npm:pi-skill-toggle
-```
-
-Or from git:
-
-```bash
 pi install git:github.com/nsandau/pi-skill-toggle
 ```
 
@@ -77,9 +71,11 @@ Disabled mode adds `-path` entries to settings.json (pi's built-in mechanism).
 | ○ (red) | Disabled - completely off |
 | * (yellow) | Pending change (not yet saved) |
 | ² | Skill has multiple sources (duplicates) |
-| `(~123 tok)` | Approximate tokens Pi adds to the startup skill catalog when the skill is enabled |
+| `(~123 tok)` | Estimated tokens for the skill's XML catalog entry when enabled |
 
-Token counts estimate Pi's per-skill XML catalog entry, which contains the name, description, and path. The **Startup skills** summary adds up enabled skills across the entire list, even when filtered. Hidden and disabled skills are excluded. The summary updates as you toggle skills, before you save. Counts do not include the shared catalog wrapper or the full `SKILL.md`, which Pi reads only when a skill is used. Counts are approximate because the exact value depends on the active model's tokenizer.
+Counts use Pi's own YAML frontmatter parser and [skill prompt formatter](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/core/skills.ts), so multiline descriptions and XML escaping match what Pi injects. The **Startup skills** summary sums enabled entries across the entire list, even when filtered. Hidden and disabled skills are excluded. The summary updates as you toggle skills, before you save.
+
+Pi does not expose a model-specific tokenizer to extensions. Token counts therefore use Pi's approximate characters ÷ 4 convention, **not** provider-reported token usage. Counts exclude the shared catalog wrapper and full `SKILL.md` bodies, which Pi reads only when a skill is used. No additional packages are needed.
 
 ## Theming
 

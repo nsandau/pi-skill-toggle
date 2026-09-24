@@ -5,6 +5,7 @@
   "main": "index.ts",
   "files": [
     "index.ts",
+    "tokens.ts",
     "theme.example.json"
   ],
   "keywords": [

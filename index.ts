@@ -19,6 +19,7 @@ import { matchesKey, truncateToWidth, visibleWidth } from "@mariozechner/pi-tui"
 import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
+import { estimateStartupTokenCount, parseSkillMetadata } from "./tokens.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -34,7 +35,7 @@ interface SkillInfo {
 	mode: DisableMode;
 	disableModelInvocation: boolean;  // True if frontmatter has disable-model-invocation: true
 	hasDuplicates: boolean;  // True if multiple paths share this name
-	startupTokenEstimate: number; // Approximate per-skill system-prompt cost when enabled
+	startupTokenEstimate: number; // o200k BPE estimate of the per-skill system-prompt entry
 }
 
 interface SkillToggleResult {
@@ -324,30 +325,8 @@ function normalizePath(p: string): string {
 	return path.resolve(trimmed);
 }
 
-/**
- * Pi injects this XML entry for each enabled skill, rather than the full
- * SKILL.md file. Tokenizers differ by model, so use a deliberately rounded
- * character-based estimate instead of implying an exact provider token count.
- */
-function estimateStartupTokenCount(name: string, description: string, filePath: string): number {
-	const xmlEscape = (value: string) => value
-		.replace(/&/g, "&amp;")
-		.replace(/</g, "&lt;")
-		.replace(/>/g, "&gt;")
-		.replace(/"/g, "&quot;")
-		.replace(/'/g, "&apos;");
-	const entry = [
-		"  <skill>",
-		`    <name>${xmlEscape(name)}</name>`,
-		`    <description>${xmlEscape(description)}</description>`,
-		`    <location>${xmlEscape(filePath)}</location>`,
-		"  </skill>",
-	].join("\n");
-	return Math.max(1, Math.round(entry.length / 4));
-}
-
 function formatTokenEstimate(tokens: number): string {
-	return tokens >= 1000 ? `${(tokens / 1000).toFixed(1)}k` : String(tokens);
+	return tokens.toLocaleString();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -448,7 +427,7 @@ function loadRawSkill(filePath: string, skills: RawSkill[], visitedRealPaths: Se
 		const content = fs.readFileSync(filePath, "utf-8");
 		const skillDir = path.dirname(filePath);
 		const parentDirName = path.basename(skillDir);
-		const { name, description, disableModelInvocation } = parseFrontmatter(content, parentDirName);
+		const { name, description, disableModelInvocation } = parseSkillMetadata(content, parentDirName);
 		
 		if (!description) return;
 		
@@ -462,38 +441,6 @@ function loadRawSkill(filePath: string, skills: RawSkill[], visitedRealPaths: Se
 	} catch {
 		// Skip invalid skill files
 	}
-}
-
-function parseFrontmatter(content: string, fallbackName: string): { name: string; description: string; disableModelInvocation: boolean } {
-	if (!content.startsWith("---")) {
-		return { name: fallbackName, description: "", disableModelInvocation: false };
-	}
-
-	const endIndex = content.indexOf("\n---", 3);
-	if (endIndex === -1) {
-		return { name: fallbackName, description: "", disableModelInvocation: false };
-	}
-
-	const frontmatter = content.slice(4, endIndex);
-	let name = fallbackName;
-	let description = "";
-	let disableModelInvocation = false;
-
-	for (const line of frontmatter.split("\n")) {
-		const colonIndex = line.indexOf(":");
-		if (colonIndex === -1) continue;
-
-		const key = line.slice(0, colonIndex).trim();
-		const value = line.slice(colonIndex + 1).trim();
-
-		if (key === "name") name = value;
-		if (key === "description") description = value;
-		if (key === "disable-model-invocation") {
-			disableModelInvocation = value.toLowerCase() === "true";
-		}
-	}
-
-	return { name, description, disableModelInvocation };
 }
 
 /**
@@ -860,7 +807,10 @@ class SkillToggleComponent {
 		const pendingCount = this.changes.size;
 		const enabledSkills = this.allSkills.filter(s => this.getEffectiveMode(s) === "enabled");
 		const enabledCount = enabledSkills.length;
-		const startupTokenTotal = enabledSkills.reduce((total, skill) => total + skill.startupTokenEstimate, 0);
+		// Pi loads at most one skill per name when sources overlap.
+		const catalogSkills = enabledSkills.filter((skill, index) =>
+			enabledSkills.findIndex(candidate => candidate.name === skill.name) === index);
+		const startupTokenTotal = catalogSkills.reduce((total, skill) => total + skill.startupTokenEstimate, 0);
 		const hiddenCount = this.allSkills.filter(s => this.getEffectiveMode(s) === "hidden").length;
 		const disabledCount = this.allSkills.filter(s => this.getEffectiveMode(s) === "disabled").length;
 		const totalCount = this.allSkills.length;
@@ -881,7 +831,7 @@ class SkillToggleComponent {
 			? `${this.query}${cursor}`
 			: `${cursor}${placeholder(italic("type to filter..."))}`;
 		lines.push(row(`${searchIconChar}  ${queryDisplay}`));
-		lines.push(row(hint(`Startup skills: ~${startupTokenTotal.toLocaleString()} tok (${enabledCount} enabled)`)));
+		lines.push(row(hint(`Startup skills: ~${formatTokenEstimate(startupTokenTotal)} tok (${catalogSkills.length} enabled)`)));
 
 		lines.push(emptyRow());
 
