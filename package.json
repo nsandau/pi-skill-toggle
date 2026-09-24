@@ -14,12 +14,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Whamp/pi-skill-toggle.git"
+    "url": "git+https://github.com/nsandau/pi-skill-toggle.git"
   },
   "bugs": {
-    "url": "https://github.com/Whamp/pi-skill-toggle/issues"
+    "url": "https://github.com/nsandau/pi-skill-toggle/issues"
   },
-  "homepage": "https://github.com/Whamp/pi-skill-toggle#readme",
+  "homepage": "https://github.com/nsandau/pi-skill-toggle#readme",
   "pi": {
     "extensions": [
       "./index.ts"
