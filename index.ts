@@ -858,7 +858,9 @@ class SkillToggleComponent {
 
 		// Count pending changes
 		const pendingCount = this.changes.size;
-		const enabledCount = this.allSkills.filter(s => this.getEffectiveMode(s) === "enabled").length;
+		const enabledSkills = this.allSkills.filter(s => this.getEffectiveMode(s) === "enabled");
+		const enabledCount = enabledSkills.length;
+		const startupTokenTotal = enabledSkills.reduce((total, skill) => total + skill.startupTokenEstimate, 0);
 		const hiddenCount = this.allSkills.filter(s => this.getEffectiveMode(s) === "hidden").length;
 		const disabledCount = this.allSkills.filter(s => this.getEffectiveMode(s) === "disabled").length;
 		const totalCount = this.allSkills.length;
@@ -879,6 +881,7 @@ class SkillToggleComponent {
 			? `${this.query}${cursor}`
 			: `${cursor}${placeholder(italic("type to filter..."))}`;
 		lines.push(row(`${searchIconChar}  ${queryDisplay}`));
+		lines.push(row(hint(`Startup skills: ~${startupTokenTotal.toLocaleString()} tok (${enabledCount} enabled)`)));
 
 		lines.push(emptyRow());
 

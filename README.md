@@ -79,7 +79,7 @@ Disabled mode adds `-path` entries to settings.json (pi's built-in mechanism).
 | ² | Skill has multiple sources (duplicates) |
 | `(~123 tok)` | Approximate tokens Pi adds to the startup skill catalog when the skill is enabled |
 
-Token counts estimate Pi's per-skill XML catalog entry, which contains the name, description, and path. They do not include the full `SKILL.md`, which Pi reads only when a skill is used. Counts are approximate because the exact value depends on the active model's tokenizer.
+Token counts estimate Pi's per-skill XML catalog entry, which contains the name, description, and path. The **Startup skills** summary adds up enabled skills across the entire list, even when filtered. Hidden and disabled skills are excluded. The summary updates as you toggle skills, before you save. Counts do not include the shared catalog wrapper or the full `SKILL.md`, which Pi reads only when a skill is used. Counts are approximate because the exact value depends on the active model's tokenizer.
 
 ## Theming
 
