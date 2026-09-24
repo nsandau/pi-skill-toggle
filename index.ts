@@ -831,7 +831,6 @@ class SkillToggleComponent {
 			? `${this.query}${cursor}`
 			: `${cursor}${placeholder(italic("type to filter..."))}`;
 		lines.push(row(`${searchIconChar}  ${queryDisplay}`));
-		lines.push(row(hint(`Startup skills: ~${formatTokenEstimate(startupTokenTotal)} tok (${catalogSkills.length} enabled)`)));
 
 		lines.push(emptyRow());
 
@@ -898,7 +897,8 @@ class SkillToggleComponent {
 
 		lines.push(emptyRow());
 
-		// Footer hints
+		// Footer summary and hints
+		lines.push(row(hint(`Startup skills: ~${formatTokenEstimate(startupTokenTotal)} tok (${catalogSkills.length} enabled)`)));
 		const baseHints = `${italic("↑↓")} navigate  ${italic("enter/space")} hide  ${italic("d")} disable  ${italic("ctrl+s")} save  ${italic("esc")} cancel`;
 		lines.push(row(hint(baseHints)));
 		

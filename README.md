@@ -73,7 +73,7 @@ Disabled mode adds `-path` entries to settings.json (pi's built-in mechanism).
 | ² | Skill has multiple sources (duplicates) |
 | `(~123 tok)` | Estimated tokens for the skill's XML catalog entry when enabled |
 
-Counts use Pi's own YAML frontmatter parser and [skill prompt formatter](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/core/skills.ts), so multiline descriptions and XML escaping match what Pi injects. The **Startup skills** summary sums enabled entries across the entire list, even when filtered. Hidden and disabled skills are excluded. The summary updates as you toggle skills, before you save.
+Counts use Pi's own YAML frontmatter parser and [skill prompt formatter](https://github.com/earendil-works/pi/blob/main/packages/coding-agent/src/core/skills.ts), so multiline descriptions and XML escaping match what Pi injects. The **Startup skills** summary in the footer sums enabled entries across the entire list, even when filtered. Hidden and disabled skills are excluded. The summary updates as you toggle skills, before you save.
 
 Pi does not expose a model-specific tokenizer to extensions. Token counts therefore use Pi's approximate characters ÷ 4 convention, **not** provider-reported token usage. Counts exclude the shared catalog wrapper and full `SKILL.md` bodies, which Pi reads only when a skill is used. No additional packages are needed.
 
