@@ -20,6 +20,7 @@ import * as fs from "node:fs";
 import * as path from "node:path";
 import * as os from "node:os";
 import { estimateStartupTokenCount, parseSkillMetadata } from "./tokens.ts";
+import { compareSources, skillSource } from "./sources.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -30,6 +31,7 @@ type DisableMode = "enabled" | "hidden" | "disabled";
 interface SkillInfo {
 	name: string;
 	description: string;
+	source: string;          // pi-skills repo or Local skills
 	filePath: string;        // Primary path (first found, shown to user)
 	allPaths: string[];      // All paths with this name (for disabling all)
 	mode: DisableMode;
@@ -577,6 +579,7 @@ function loadAllSkills(): { skills: SkillInfo[]; byName: Map<string, SkillInfo> 
 			byName.set(raw.name, {
 				name: raw.name,
 				description: raw.description,
+				source: skillSource(raw.filePath),
 				filePath: raw.filePath,
 				allPaths: [], // Will be filled after grouping
 				mode: "enabled", // Will be computed after grouping
@@ -604,7 +607,8 @@ function loadAllSkills(): { skills: SkillInfo[]; byName: Map<string, SkillInfo> 
 		}
 	}
 
-	const skills = Array.from(byName.values()).sort((a, b) => a.name.localeCompare(b.name));
+	const skills = Array.from(byName.values()).sort((a, b) =>
+		compareSources(a.source, b.source) || a.name.localeCompare(b.name));
 	return { skills, byName };
 }
 
@@ -651,7 +655,7 @@ function filterSkills(skills: SkillInfo[], query: string): SkillInfo[] {
 		.filter((item) => item.score > 0)
 		.sort((a, b) => b.score - a.score);
 
-	return scored.map((item) => item.skill);
+	return scored.map((item) => item.skill).sort((a, b) => compareSources(a.source, b.source));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -856,6 +860,10 @@ class SkillToggleComponent {
 			lines.push(emptyRow());
 			for (let i = startIndex; i < endIndex; i++) {
 				const skill = this.filtered[i];
+				if (i === startIndex || skill.source !== this.filtered[i - 1].source) {
+					const inGroup = this.filtered.filter(item => item.source === skill.source).length;
+					lines.push(row(title(bold(`${skill.source} (${inGroup})`))));
+				}
 				const isSelected = i === this.selected;
 				const mode = this.getEffectiveMode(skill);
 				const hasChanged = this.changes.has(skill.name);

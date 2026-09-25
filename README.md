@@ -19,14 +19,16 @@ Restart pi to load the extension.
 ```
 
 This opens an interactive overlay where you can:
-- **Navigate** with ↑/↓ arrows
-- **Filter** by typing
+- **Navigate** with ↑/↓ arrows through skills grouped by source repository
+- **Filter** by typing while keeping matching skills grouped
 - **Enter/Space** - Toggle between enabled ↔ hidden
 - **d** - Toggle full disable (enabled ↔ disabled)
 - **Ctrl+S** - Save changes
 - **Esc** - Cancel
 
 ## How It Works
+
+Repository groups come from `pi-skills` lockfiles (`~/.agents/.skill-lock.json` or the project's `.agents/.skill-lock.json`). Only installed skill folders matching a lockfile entry are attributed to its GitHub repository. Skills without a matching entry appear under **Local skills**. Duplicate skill names remain a single row under the first discovered source.
 
 Skills are disabled by adding `-path` entries to the `skills` array in `~/.pi/agent/settings.json`. For example:
 
