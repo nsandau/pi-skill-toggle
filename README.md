@@ -19,16 +19,16 @@ Restart pi to load the extension.
 ```
 
 This opens an interactive overlay where you can:
-- **Navigate** with ↑/↓ arrows through skills grouped by source repository
-- **Filter** by typing while keeping matching skills grouped
-- **Enter/Space** - Toggle between enabled ↔ hidden
-- **d** - Toggle full disable (enabled ↔ disabled)
+- **Navigate** with ↑/↓ arrows through skills and selectable source headings
+- **Filter** by skill name, description, or repository while keeping matches grouped
+- **Enter/Space** - Toggle enabled ↔ hidden for a skill or its entire source
+- **d** - Toggle full disable (enabled ↔ disabled) for a skill or its entire source
 - **Ctrl+S** - Save changes
 - **Esc** - Cancel
 
 ## How It Works
 
-Repository groups come from `pi-skills` lockfiles (`~/.agents/.skill-lock.json` or the project's `.agents/.skill-lock.json`). Only installed skill folders matching a lockfile entry are attributed to its GitHub repository. Skills without a matching entry appear under **Local skills**. Duplicate skill names remain a single row under the first discovered source.
+Repository groups come from `pi-skills` lockfiles (`~/.agents/.skill-lock.json` or the project's `.agents/.skill-lock.json`). Only installed skill folders matching a lockfile entry are attributed to its GitHub repository. Skills without a matching entry appear under **Local skills**. Duplicate skill names remain a single row under the first discovered source. Select a repository heading and press **Enter/Space** to hide or enable all its skills, or **d** to disable or enable all. This also works for **Local skills**. Group actions include all skills in that source, even if search currently shows only some of them. All changes remain pending until **Ctrl+S**.
 
 Skills are disabled by adding `-path` entries to the `skills` array in `~/.pi/agent/settings.json`. For example:
 

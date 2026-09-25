@@ -21,6 +21,7 @@ import * as path from "node:path";
 import * as os from "node:os";
 import { estimateStartupTokenCount, parseSkillMetadata } from "./tokens.ts";
 import { compareSources, skillSource } from "./sources.ts";
+import { effectiveMode, groupRows, toggleGroup, type SkillRow } from "./groups.ts";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Types
@@ -649,7 +650,8 @@ function filterSkills(skills: SkillInfo[], query: string): SkillInfo[] {
 			skill,
 			score: Math.max(
 				fuzzyScore(query, skill.name),
-				fuzzyScore(query, skill.description) * 0.8
+				fuzzyScore(query, skill.description) * 0.8,
+				fuzzyScore(query, skill.source) * 0.9
 			),
 		}))
 		.filter((item) => item.score > 0)
@@ -665,6 +667,7 @@ function filterSkills(skills: SkillInfo[], query: string): SkillInfo[] {
 class SkillToggleComponent {
 	private allSkills: SkillInfo[];
 	private filtered: SkillInfo[];
+	private rows: SkillRow<SkillInfo>[];
 	private selected = 0;
 	private query = "";
 	private changes = new Map<string, DisableMode>(); // skill NAME -> new mode
@@ -677,6 +680,7 @@ class SkillToggleComponent {
 	) {
 		this.allSkills = skills;
 		this.filtered = skills;
+		this.rows = groupRows(skills);
 		this.resetInactivityTimeout();
 	}
 
@@ -689,10 +693,7 @@ class SkillToggleComponent {
 	}
 
 	private getEffectiveMode(skill: SkillInfo): DisableMode {
-		if (this.changes.has(skill.name)) {
-			return this.changes.get(skill.name)!;
-		}
-		return skill.mode;
+		return effectiveMode(skill, this.changes);
 	}
 
 	handleInput(data: string): void {
@@ -704,9 +705,14 @@ class SkillToggleComponent {
 			return;
 		}
 
-		// Enter/Space toggles between enabled <-> hidden (default action)
+		// Enter/Space toggles the selected skill or all skills in a source.
 		if (matchesKey(data, "return") || data === " ") {
-			const skill = this.filtered[this.selected];
+			const row = this.rows[this.selected];
+			if (row?.kind === "group") {
+				toggleGroup(this.allSkills, row.source, this.changes, "hide");
+				return;
+			}
+			const skill = row?.kind === "skill" ? row.skill : undefined;
 			if (skill) {
 				const currentMode = this.getEffectiveMode(skill);
 				const originalMode = skill.mode;
@@ -723,9 +729,14 @@ class SkillToggleComponent {
 			return;
 		}
 
-		// 'd' or Ctrl+D toggles full disable (enabled/hidden <-> disabled)
+		// 'd' or Ctrl+D disables/enables the selected skill or entire source.
 		if (data === "d" || matchesKey(data, "ctrl+d")) {
-			const skill = this.filtered[this.selected];
+			const row = this.rows[this.selected];
+			if (row?.kind === "group") {
+				toggleGroup(this.allSkills, row.source, this.changes, "disable");
+				return;
+			}
+			const skill = row?.kind === "skill" ? row.skill : undefined;
 			if (skill) {
 				const currentMode = this.getEffectiveMode(skill);
 				const originalMode = skill.mode;
@@ -749,15 +760,15 @@ class SkillToggleComponent {
 		}
 
 		if (matchesKey(data, "up")) {
-			if (this.filtered.length > 0) {
-				this.selected = this.selected === 0 ? this.filtered.length - 1 : this.selected - 1;
+			if (this.rows.length > 0) {
+				this.selected = this.selected === 0 ? this.rows.length - 1 : this.selected - 1;
 			}
 			return;
 		}
 
 		if (matchesKey(data, "down")) {
-			if (this.filtered.length > 0) {
-				this.selected = this.selected === this.filtered.length - 1 ? 0 : this.selected + 1;
+			if (this.rows.length > 0) {
+				this.selected = this.selected === this.rows.length - 1 ? 0 : this.selected + 1;
 			}
 			return;
 		}
@@ -779,6 +790,7 @@ class SkillToggleComponent {
 
 	private updateFilter(): void {
 		this.filtered = filterSkills(this.allSkills, this.query);
+		this.rows = groupRows(this.filtered);
 		this.selected = 0;
 	}
 
@@ -847,29 +859,44 @@ class SkillToggleComponent {
 		// Divider
 		lines.push(border("├" + "─".repeat(innerW) + "┤"));
 
-		// Skills list
+		// Source headers are selectable. A header always acts on the full
+		// source, even when search shows only a subset of its skills.
 		const maxVisible = 12;
-		const startIndex = Math.max(0, Math.min(this.selected - Math.floor(maxVisible / 2), this.filtered.length - maxVisible));
-		const endIndex = Math.min(startIndex + maxVisible, this.filtered.length);
+		const startIndex = Math.max(0, Math.min(this.selected - Math.floor(maxVisible / 2), this.rows.length - maxVisible));
+		const endIndex = Math.min(startIndex + maxVisible, this.rows.length);
 
-		if (this.filtered.length === 0) {
+		if (this.rows.length === 0) {
 			lines.push(emptyRow());
 			lines.push(row(hint(italic("No matching skills"))));
 			lines.push(emptyRow());
 		} else {
 			lines.push(emptyRow());
+			if (this.rows[startIndex].kind === "skill") {
+				lines.push(row(hint(`  ${this.rows[startIndex].skill.source} (continued)`)));
+			}
 			for (let i = startIndex; i < endIndex; i++) {
-				const skill = this.filtered[i];
-				if (i === startIndex || skill.source !== this.filtered[i - 1].source) {
-					const inGroup = this.filtered.filter(item => item.source === skill.source).length;
-					lines.push(row(title(bold(`${skill.source} (${inGroup})`))));
-				}
+				const item = this.rows[i];
 				const isSelected = i === this.selected;
+				const prefix = isSelected ? selected("▸") : border("·");
+				if (item.kind === "group") {
+					const members = this.allSkills.filter(skill => skill.source === item.source);
+					const visibleCount = this.filtered.filter(skill => skill.source === item.source).length;
+					const modes = members.map(skill => this.getEffectiveMode(skill));
+					const allEnabled = modes.every(mode => mode === "enabled");
+					const allHidden = modes.every(mode => mode === "hidden");
+					const allDisabled = modes.every(mode => mode === "disabled");
+					const statusIcon = allEnabled ? enabled("●") : allHidden ? fg(t.hidden, "◐")
+						: allDisabled ? disabled("○") : hint("◒");
+					const count = visibleCount === members.length ? `${members.length}` : `${visibleCount}/${members.length}`;
+					const label = isSelected ? bold(selectedText(item.source)) : title(bold(item.source));
+					lines.push(row(`${prefix} ${statusIcon} ${label} ${hint(`(${count})`)}`));
+					continue;
+				}
+				const skill = item.skill;
 				const mode = this.getEffectiveMode(skill);
 				const hasChanged = this.changes.has(skill.name);
-				
+
 				// Build the skill line - icons: ● enabled, ◐ hidden, ○ disabled
-				const prefix = isSelected ? selected("▸") : border("·");
 				let statusIcon: string;
 				if (mode === "enabled") {
 					statusIcon = enabled("●");
@@ -885,17 +912,15 @@ class SkillToggleComponent {
 				const tokenStr = hint(tokenText);
 				const maxDescLen = Math.max(0, innerW - visLen(skill.name) - visLen(tokenText) - 18);
 				const descStr = maxDescLen > 3 ? description(truncateToWidth(skill.description, maxDescLen, "…")) : "";
-				
+
 				const separator = descStr ? `  ${border("—")}  ` : "";
 				const skillLine = `${prefix} ${statusIcon}${changedMarker}${dupMarker}${nameStr}${tokenStr}${separator}${descStr}`;
 				lines.push(row(skillLine));
 			}
 			lines.push(emptyRow());
 
-			// Scroll indicator
-			if (this.filtered.length > maxVisible) {
-				const countStr = `${this.selected + 1}/${this.filtered.length}`;
-				lines.push(row(hint(countStr)));
+			if (this.rows.length > maxVisible) {
+				lines.push(row(hint(`${this.selected + 1}/${this.rows.length}`)));
 				lines.push(emptyRow());
 			}
 		}
@@ -908,6 +933,7 @@ class SkillToggleComponent {
 		// Footer summary and hints
 		lines.push(row(hint(`Startup skills: ~${formatTokenEstimate(startupTokenTotal)} tok (${catalogSkills.length} enabled)`)));
 		const baseHints = `${italic("↑↓")} navigate  ${italic("enter/space")} hide  ${italic("d")} disable  ${italic("ctrl+s")} save  ${italic("esc")} cancel`;
+		lines.push(row(hint("Select a source heading to change every skill in it")));
 		lines.push(row(hint(baseHints)));
 		
 		// Legend for markers

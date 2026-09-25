@@ -7,6 +7,7 @@
     "index.ts",
     "tokens.ts",
     "sources.ts",
+    "groups.ts",
     "theme.example.json"
   ],
   "keywords": [
